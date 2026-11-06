@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Generator Invoice</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<style>
+  /* Tata letak: formulir di kiri, pratinjau invoice di kanan (layar lebar); satu kolom di HP.
+     Warna: hanya biru dan putih. Kertas invoice tetap putih di kedua tema agar siap dicetak. */
+  :root{
+    --bg:#eef4ff; --surface:#ffffff; --surface-2:#f3f7ff; --ink:#0a1f44; --muted:#4d5f7e;
+    --line:#cfdcf5; --blue:#1b4fd8; --blue-deep:#0e2f8a; --blue-soft:#dbe8ff; --on-accent:#ffffff;
+    --paper:#ffffff; --paper-ink:#0a1f44; --paper-muted:#4d5f7e; --paper-line:#cfdcf5;
+    --paper-blue:#1b4fd8; --paper-head:#0e2f8a;
+    --font-body:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+    --font-mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+    color-scheme:light;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#07122b; --surface:#0d1c3d; --surface-2:#112448; --ink:#e8f0ff; --muted:#9db2d6;
+      --line:#1f3566; --blue:#5b9bff; --blue-deep:#12328a; --blue-soft:#16315f; --on-accent:#06142e;
+      color-scheme:dark;
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#07122b; --surface:#0d1c3d; --surface-2:#112448; --ink:#e8f0ff; --muted:#9db2d6;
+    --line:#1f3566; --blue:#5b9bff; --blue-deep:#12328a; --blue-soft:#16315f; --on-accent:#06142e;
+    color-scheme:dark;
+  }
+
+  *{box-sizing:border-box}
+  [hidden]{display:none !important}
+  body{
+    margin:0; background:var(--bg); color:var(--ink);
+    font:15px/1.5 var(--font-body);
+    padding-block:20px 32px;
+    padding-left:max(16px, env(safe-area-inset-left, 0px));
+    padding-right:max(16px, env(safe-area-inset-right, 0px));
+  }
+  .wrap{max-width:1080px;margin:0 auto;display:grid;gap:16px}
+
+  .kepala{background:var(--blue-deep);color:#fff;border-radius:14px;padding:18px;
+    display:flex;justify-content:space-between;align-items:flex-end;gap:16px;flex-wrap:wrap}
+  .kepala h1{margin:0;font-size:1.5rem;line-height:1.2;font-weight:700;letter-spacing:-.01em;text-wrap:balance}
+  .kepala p{margin:4px 0 0;font-size:.9rem;color:#cfe0ff;max-width:46ch}
+  .ringkas{text-align:right;min-width:0}
+  @media (max-width:520px){ .ringkas{text-align:left} }
+  .ringkas span{display:block;font-size:.72rem;letter-spacing:.08em;text-transform:uppercase;color:#cfe0ff}
+  .ringkas strong{font:600 1.35rem/1.2 var(--font-mono);font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+
+  .layout{display:grid;gap:16px;grid-template-columns:minmax(0,1fr);align-items:start}
+  @media (min-width:960px){ .layout{grid-template-columns:minmax(0,440px) minmax(0,1fr)} }
+  .kolom{display:grid;gap:14px;min-width:0}
+
+  .kartu{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:16px;min-width:0}
+  .kartu h2{margin:0 0 4px;font-size:.78rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--blue)}
+  label{display:block;font-size:.82rem;color:var(--muted);margin:12px 0 4px}
+  input,textarea{width:100%;padding:10px 11px;border:1px solid var(--line);border-radius:8px;background:var(--surface-2);
+    color:var(--ink);font:inherit}
+  textarea{min-height:64px;resize:vertical}
+  input[type=number]{font-family:var(--font-mono);font-variant-numeric:tabular-nums}
+  :focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+  .baris2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px}
+
+  .item{border:1px solid var(--line);border-radius:10px;padding:10px;margin:10px 0;background:var(--surface-2)}
+  .item .atas{display:grid;grid-template-columns:76px minmax(0,1fr);gap:8px}
+  .item .tengah{margin-top:8px}
+  .item .bawah{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:8px}
+  .sub-item{font:600 .95rem var(--font-mono);font-variant-numeric:tabular-nums}
+  .item input{background:var(--surface)}
+
+  button{font:inherit;font-weight:600;border-radius:8px;border:1px solid var(--blue);background:transparent;color:var(--blue);
+    padding:10px 14px;cursor:pointer;min-height:42px}
+  button.utama{background:var(--blue);color:var(--on-accent)}
+  button.kecil-btn{padding:5px 11px;min-height:0;font-size:.85rem;background:var(--blue-soft);border-color:var(--blue-soft)}
+  button:hover{filter:brightness(1.06)}
+  .aksi{display:flex;gap:10px;flex-wrap:wrap}
+  .aksi button{flex:1 1 150px}
+  .status{margin:10px 0 0;min-height:1.4em;font-size:.88rem;color:var(--blue);font-weight:500}
+  .salinan{margin-top:8px;min-height:120px;font:.8rem/1.4 var(--font-mono)}
+  .kosong{margin:8px 0;color:var(--muted);font-size:.9rem}
+
+  /* ===== Kertas invoice ===== */
+  .pratinjau{min-width:0}
+  .kertas{background:var(--paper);color:var(--paper-ink);border:1px solid var(--line);border-radius:10px;padding:22px;font-size:.92rem}
+  .kertas h3{margin:0;font-size:1.6rem;line-height:1.1;letter-spacing:.1em;color:var(--paper-blue);font-weight:700}
+  .kop{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;border-bottom:3px solid var(--paper-blue);padding-bottom:12px;margin-bottom:14px}
+  .kop > div{min-width:0}
+  .kop .usaha{font-weight:700;font-size:1.05rem;overflow-wrap:anywhere}
+  .kop .nomor{font:600 .85rem var(--font-mono);color:var(--paper-muted);margin-top:4px}
+  .kecil{color:var(--paper-muted);font-size:.85rem;white-space:pre-line;overflow-wrap:anywhere}
+  .info{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px;margin-bottom:12px}
+  .info b{display:block;font-size:.72rem;color:var(--paper-blue);text-transform:uppercase;letter-spacing:.08em}
+  .info .jt{margin-top:8px}
+  table{width:100%;border-collapse:collapse;margin:8px 0}
+  th{background:var(--paper-head);color:#fff;text-align:left;padding:7px;font-size:.78rem;letter-spacing:.04em}
+  td{padding:7px;border-bottom:1px solid var(--paper-line);vertical-align:top;overflow-wrap:break-word}
+  .kanan{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
+  @media (max-width:520px){
+    .kertas{padding:14px;font-size:.86rem}
+    th,td{padding:6px 4px}
+    td.kanan,th.kanan{font-size:.78rem}
+    th:first-child,td:first-child{width:22px}
+  }
+  .total-blok{margin-left:auto;width:min(100%,330px);margin-top:10px;font-variant-numeric:tabular-nums}
+  .total-blok div{display:flex;justify-content:space-between;gap:12px;padding:3px 0}
+  .total-blok .grand{border-top:2px solid var(--paper-blue);margin-top:5px;padding-top:7px;font-weight:700;font-size:1.08rem;color:var(--paper-blue)}
+  .terbilang{margin-top:12px;font-style:italic;color:var(--paper-ink)}
+  .catatan{margin-top:14px;padding-top:10px;border-top:1px dashed var(--paper-line)}
+
+  @media print{
+    :root{--bg:#fff}
+    body{padding:0}
+    .kepala,.kolom{display:none !important}
+    .layout{display:block}
+    .kertas{border:none;padding:0}
+  }
+  @media (prefers-reduced-motion: no-preference){
+    button{transition:filter .15s}
+  }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header class="kepala">
+    <div>
+      <h1>Generator Invoice</h1>
+      <p>Isi formulir, invoice tersusun otomatis. Data awal hanya contoh, ganti dengan data Anda. Semua tersimpan di browser ini.</p>
+    </div>
+    <div class="ringkas"><span>Total saat ini</span><strong id="totalAtas">Rp 0</strong></div>
+  </header>
+
+  <div class="layout">
+    <div class="kolom">
+      <section class="kartu">
+        <h2>Penjual</h2>
+        <label for="usaha">Nama usaha</label>
+        <input id="usaha" autocomplete="off">
+        <label for="alamatUsaha">Alamat / kontak</label>
+        <textarea id="alamatUsaha"></textarea>
+      </section>
+
+      <section class="kartu">
+        <h2>Pelanggan dan invoice</h2>
+        <label for="pelanggan">Nama pelanggan</label>
+        <input id="pelanggan" autocomplete="off">
+        <label for="alamatPelanggan">Alamat pelanggan</label>
+        <textarea id="alamatPelanggan"></textarea>
+        <div class="baris2">
+          <div><label for="nomor">Nomor invoice</label><input id="nomor" autocomplete="off"></div>
+          <div><label for="tanggal">Tanggal</label><input id="tanggal" type="date"></div>
+        </div>
+        <label for="jatuhTempo">Jatuh tempo</label>
+        <input id="jatuhTempo" type="date">
+      </section>
+
+      <section class="kartu">
+        <h2>Item</h2>
+        <div id="daftarItem"></div>
+        <button class="utama" id="tambahItem" type="button">Tambah item</button>
+        <div class="baris2">
+          <div><label for="ppn">PPN (%)</label><input id="ppn" type="number" inputmode="decimal" min="0" step="0.1"></div>
+          <div><label for="diskon">Diskon (Rp)</label><input id="diskon" type="number" inputmode="numeric" min="0" step="1"></div>
+        </div>
+        <label for="catatan">Catatan / rekening pembayaran</label>
+        <textarea id="catatan"></textarea>
+      </section>
+
+      <section class="kartu">
+        <div class="aksi">
+          <button class="utama" id="salin" type="button">Salin teks invoice</button>
+          <button id="baru" type="button">Invoice baru</button>
+        </div>
+        <p class="status" id="status" role="status" aria-live="polite"></p>
+        <label for="salinan" hidden id="labelSalinan">Teks invoice (tekan lama, lalu pilih Salin)</label>
+        <textarea id="salinan" class="salinan" readonly hidden></textarea>
+      </section>
+    </div>
+
+    <section class="pratinjau" aria-label="Pratinjau invoice">
+      <div class="kertas" id="kertas"></div>
+    </section>
+  </div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  var KUNCI = "generator_invoice_v1";
+  var KUNCI_HITUNG = "generator_invoice_hitung";
+  var $ = function(id){ return document.getElementById(id); };
+
+  // ---------- penyimpanan aman (bisa gagal di mode privat) ----------
+  function baca(k){ try { return localStorage.getItem(k); } catch(e){ return null; } }
+  function tulis(k,v){ try { localStorage.setItem(k,v); } catch(e){} }
+
+  // ---------- util ----------
+  function rp(n){ return "Rp " + Math.round(n).toLocaleString("id-ID"); }
+  function angka(v){ var x = parseFloat(v); return isFinite(x) && x > 0 ? x : 0; }
+  function dua(n){ return String(n).padStart(2,"0"); }
+  function hariIni(){
+    var d = new Date();
+    return d.getFullYear()+"-"+dua(d.getMonth()+1)+"-"+dua(d.getDate());
+  }
+  function tambahHari(iso, n){
+    var d = new Date(iso+"T00:00:00"); d.setDate(d.getDate()+n);
+    return d.getFullYear()+"-"+dua(d.getMonth()+1)+"-"+dua(d.getDate());
+  }
+  function tglIndo(iso){
+    if(!iso) return "-";
+    var b = ["Januari","Februari","Maret","April","Mei","Juni","Juli","Agustus","September","Oktober","November","Desember"];
+    var p = iso.split("-"); if(p.length!==3) return iso;
+    return parseInt(p[2],10)+" "+b[parseInt(p[1],10)-1]+" "+p[0];
+  }
+
+  // ---------- terbilang (Rupiah) ----------
+  var SAT = ["","satu","dua","tiga","empat","lima","enam","tujuh","delapan","sembilan","sepuluh","sebelas"];
+  function tb(n){
+    if(n < 12) return SAT[n];
+    if(n < 20) return tb(n-10)+" belas";
+    if(n < 100) return tb(Math.floor(n/10))+" puluh"+(n%10 ? " "+tb(n%10) : "");
+    if(n < 200) return "seratus"+(n%100 ? " "+tb(n%100) : "");
+    if(n < 1e3) return tb(Math.floor(n/100))+" ratus"+(n%100 ? " "+tb(n%100) : "");
+    if(n < 2e3) return "seribu"+(n%1e3 ? " "+tb(n%1e3) : "");
+    if(n < 1e6) return tb(Math.floor(n/1e3))+" ribu"+(n%1e3 ? " "+tb(n%1e3) : "");
+    if(n < 1e9) return tb(Math.floor(n/1e6))+" juta"+(n%1e6 ? " "+tb(n%1e6) : "");
+    if(n < 1e12) return tb(Math.floor(n/1e9))+" miliar"+(n%1e9 ? " "+tb(n%1e9) : "");
+    if(n < 1e15) return tb(Math.floor(n/1e12))+" triliun"+(n%1e12 ? " "+tb(n%1e12) : "");
+    return "";
+  }
+  function terbilang(n){
+    n = Math.round(n);
+    if(n <= 0) return "nol rupiah";
+    var t = tb(n);
+    return t ? t+" rupiah" : "";
+  }
+
+  // ---------- data ----------
+  function nomorBerikut(){
+    var c = parseInt(baca(KUNCI_HITUNG) || "0", 10) + 1;
+    var h = hariIni();
+    return { c: c, nomor: "INV-"+h.slice(0,4)+h.slice(5,7)+"-"+String(c).padStart(4,"0") };
+  }
+  function contoh(){
+    var h = hariIni(), n = nomorBerikut();
+    tulis(KUNCI_HITUNG, String(n.c));
+    return {
+      usaha: "Contoh Usaha Sejahtera",
+      alamatUsaha: "Jl. Contoh No. 1, Bandung\nTelp. 0812-0000-0000",
+      pelanggan: "PT Pelanggan Contoh",
+      alamatPelanggan: "Jl. Pelanggan No. 10, Jakarta",
+      nomor: n.nomor, tanggal: h, jatuhTempo: tambahHari(h, 14),
+      items: [
+        { nama: "Jasa inspeksi (per orang/hari)", qty: 20, harga: 350000 },
+        { nama: "Lembur (per jam)", qty: 10, harga: 25000 }
+      ],
+      ppn: 11, diskon: 0,
+      catatan: "Pembayaran ke rekening BCA 000-000-0000 a.n. Contoh Usaha Sejahtera."
+    };
+  }
+  var S;
+  (function muat(){
+    var tersimpan = baca(KUNCI);
+    if(tersimpan){
+      try { S = JSON.parse(tersimpan); } catch(e){ S = null; }
+    }
+    if(!S || !Array.isArray(S.items)) S = contoh();
+  })();
+
+  function simpan(){ tulis(KUNCI, JSON.stringify(S)); }
+
+  // ---------- hitung ----------
+  function hitung(){
+    var sub = 0;
+    S.items.forEach(function(it){ sub += angka(it.qty) * angka(it.harga); });
+    var diskon = Math.min(angka(S.diskon), sub);
+    var dpp = sub - diskon;
+    var pajak = Math.round(dpp * angka(S.ppn) / 100);
+    return { sub: sub, diskon: diskon, dpp: dpp, pajak: pajak, total: Math.round(dpp + pajak) };
+  }
+
+  // ---------- formulir ----------
+  var FIELD = ["usaha","alamatUsaha","pelanggan","alamatPelanggan","nomor","tanggal","jatuhTempo","ppn","diskon","catatan"];
+
+  function isiForm(){
+    FIELD.forEach(function(f){ $(f).value = S[f] == null ? "" : S[f]; });
+    renderItem();
+  }
+
+  function renderItem(){
+    var wadah = $("daftarItem");
+    wadah.textContent = "";
+    S.items.forEach(function(it, i){
+      var kotak = document.createElement("div"); kotak.className = "item";
+
+      var atas = document.createElement("div"); atas.className = "atas";
+      var qty = document.createElement("input");
+      qty.type = "number"; qty.inputMode = "decimal"; qty.min = "0"; qty.step = "any";
+      qty.id = "qty"+i; qty.value = it.qty; qty.setAttribute("aria-label","Jumlah item "+(i+1));
+      var nama = document.createElement("input");
+      nama.id = "nama"+i; nama.value = it.nama; nama.placeholder = "Nama item"; nama.setAttribute("aria-label","Nama item "+(i+1));
+      atas.appendChild(qty); atas.appendChild(nama);
+
+      var tengah = document.createElement("div"); tengah.className = "tengah";
+      var harga = document.createElement("input");
+      harga.type = "number"; harga.inputMode = "numeric"; harga.min = "0"; harga.step = "any";
+      harga.id = "harga"+i; harga.value = it.harga; harga.placeholder = "Harga satuan (Rp)";
+      harga.setAttribute("aria-label","Harga satuan item "+(i+1));
+      tengah.appendChild(harga);
+
+      var bawah = document.createElement("div"); bawah.className = "bawah";
+      var sub = document.createElement("span"); sub.className = "sub-item";
+      var hapus = document.createElement("button"); hapus.type = "button"; hapus.className = "kecil-btn"; hapus.textContent = "Hapus item";
+      hapus.setAttribute("aria-label","Hapus item "+(i+1));
+
+      function perbaruiSub(){ sub.textContent = rp(angka(it.qty)*angka(it.harga)); }
+      perbaruiSub();
+
+      qty.addEventListener("input", function(){ it.qty = qty.value; perbaruiSub(); berubah(); });
+      nama.addEventListener("input", function(){ it.nama = nama.value; berubah(); });
+      harga.addEventListener("input", function(){ it.harga = harga.value; perbaruiSub(); berubah(); });
+      hapus.addEventListener("click", function(){ S.items.splice(i,1); renderItem(); berubah(); });
+
+      bawah.appendChild(sub); bawah.appendChild(hapus);
+      kotak.appendChild(atas); kotak.appendChild(tengah); kotak.appendChild(bawah);
+      wadah.appendChild(kotak);
+    });
+    if(!S.items.length){
+      var p = document.createElement("p"); p.className = "kosong"; p.textContent = "Belum ada item. Ketuk “Tambah item”.";
+      wadah.appendChild(p);
+    }
+  }
+
+  // ---------- pratinjau (memakai textContent: aman dari injeksi HTML) ----------
+  function el(tag, kelas, teks){
+    var e = document.createElement(tag);
+    if(kelas) e.className = kelas;
+    if(teks != null) e.textContent = teks;
+    return e;
+  }
+
+  function renderKertas(){
+    var k = $("kertas"); k.textContent = "";
+    var h = hitung();
+    $("totalAtas").textContent = rp(h.total);
+
+    var kop = el("div","kop");
+    var kiri = el("div");
+    kiri.appendChild(el("div","usaha", S.usaha || "(Nama usaha)"));
+    kiri.appendChild(el("div","kecil", S.alamatUsaha || ""));
+    var kanan = el("div"); kanan.style.textAlign = "right";
+    kanan.appendChild(el("h3", null, "INVOICE"));
+    kanan.appendChild(el("div","nomor", S.nomor || "-"));
+    kop.appendChild(kiri); kop.appendChild(kanan);
+    k.appendChild(kop);
+
+    var info = el("div","info");
+    var a = el("div"); a.appendChild(el("b",null,"Ditagihkan kepada"));
+    a.appendChild(el("div",null, S.pelanggan || "-"));
+    a.appendChild(el("div","kecil", S.alamatPelanggan || ""));
+    var b = el("div"); b.appendChild(el("b",null,"Tanggal"));
+    b.appendChild(el("div",null, tglIndo(S.tanggal)));
+    var jt = el("div","jt"); jt.appendChild(el("b",null,"Jatuh tempo")); jt.appendChild(el("div",null, tglIndo(S.jatuhTempo)));
+    b.appendChild(jt);
+    info.appendChild(a); info.appendChild(b);
+    k.appendChild(info);
+
+    var tabel = el("table");
+    var kepala = el("thead"), tr = el("tr");
+    ["No","Deskripsi","Jml","Harga","Jumlah"].forEach(function(t, i){
+      tr.appendChild(el("th", i>=2 ? "kanan" : null, t));
+    });
+    kepala.appendChild(tr); tabel.appendChild(kepala);
+    var badan = el("tbody");
+    S.items.forEach(function(it, i){
+      var r = el("tr");
+      r.appendChild(el("td",null,String(i+1)));
+      r.appendChild(el("td",null,it.nama || "-"));
+      r.appendChild(el("td","kanan", String(angka(it.qty))));
+      r.appendChild(el("td","kanan", rp(angka(it.harga))));
+      r.appendChild(el("td","kanan", rp(angka(it.qty)*angka(it.harga))));
+      badan.appendChild(r);
+    });
+    tabel.appendChild(badan); k.appendChild(tabel);
+
+    var tot = el("div","total-blok");
+    function baris(label, nilai, kelas){
+      var d = el("div", kelas); d.appendChild(el("span",null,label)); d.appendChild(el("span",null,nilai)); tot.appendChild(d);
+    }
+    baris("Subtotal", rp(h.sub));
+    if(h.diskon > 0) baris("Diskon", "- "+rp(h.diskon));
+    baris("PPN ("+angka(S.ppn)+"%)", rp(h.pajak));
+    baris("TOTAL", rp(h.total), "grand");
+    k.appendChild(tot);
+
+    var tbl = terbilang(h.total);
+    if(tbl) k.appendChild(el("div","terbilang","Terbilang: "+tbl.charAt(0).toUpperCase()+tbl.slice(1)+"."));
+    if(S.catatan) k.appendChild(el("div","catatan kecil", S.catatan));
+  }
+
+  function berubah(){ simpan(); renderKertas(); }
+
+  // ---------- teks invoice untuk disalin ----------
+  function teksInvoice(){
+    var h = hitung(), baris = [];
+    baris.push("INVOICE "+(S.nomor || "-"));
+    baris.push(S.usaha || "");
+    if(S.alamatUsaha) baris.push(S.alamatUsaha);
+    baris.push("");
+    baris.push("Kepada : "+(S.pelanggan || "-"));
+    if(S.alamatPelanggan) baris.push("          "+S.alamatPelanggan);
+    baris.push("Tanggal: "+tglIndo(S.tanggal));
+    baris.push("Jatuh tempo: "+tglIndo(S.jatuhTempo));
+    baris.push("");
+    S.items.forEach(function(it, i){
+      baris.push((i+1)+". "+(it.nama || "-")+" | "+angka(it.qty)+" x "+rp(angka(it.harga))+" = "+rp(angka(it.qty)*angka(it.harga)));
+    });
+    baris.push("");
+    baris.push("Subtotal: "+rp(h.sub));
+    if(h.diskon > 0) baris.push("Diskon  : - "+rp(h.diskon));
+    baris.push("PPN "+angka(S.ppn)+"%: "+rp(h.pajak));
+    baris.push("TOTAL   : "+rp(h.total));
+    var t = terbilang(h.total);
+    if(t) baris.push("Terbilang: "+t.charAt(0).toUpperCase()+t.slice(1)+".");
+    if(S.catatan){ baris.push(""); baris.push(S.catatan); }
+    return baris.join("\n");
+  }
+
+  function pesan(teks){
+    $("status").textContent = teks;
+  }
+
+  // ---------- event ----------
+  FIELD.forEach(function(f){
+    $(f).addEventListener("input", function(){ S[f] = $(f).value; berubah(); });
+  });
+
+  $("tambahItem").addEventListener("click", function(){
+    S.items.push({ nama:"", qty:1, harga:0 });
+    renderItem(); berubah();
+    var terakhir = S.items.length - 1;
+    var inp = $("nama"+terakhir); if(inp) inp.focus();
+  });
+
+  $("salin").addEventListener("click", function(){
+    var teks = teksInvoice();
+    function cadangan(){
+      var area = $("salinan");
+      area.value = teks; area.hidden = false; $("labelSalinan").hidden = false;
+      area.focus(); area.select();
+      pesan("Salin otomatis tidak tersedia. Teks sudah dipilih, tekan lama lalu pilih Salin.");
+    }
+    try {
+      if(navigator.clipboard && navigator.clipboard.writeText){
+        navigator.clipboard.writeText(teks).then(function(){
+          $("salinan").hidden = true; $("labelSalinan").hidden = true;
+          pesan("Teks invoice sudah disalin.");
+        }, cadangan);
+      } else { cadangan(); }
+    } catch(e){ cadangan(); }
+  });
+
+  var menunggu = false, penghitung = null;
+  $("baru").addEventListener("click", function(){
+    var tombol = $("baru");
+    if(!menunggu){
+      menunggu = true;
+      tombol.textContent = "Ketuk lagi untuk memulai";
+      pesan("Item dan nomor akan diganti. Data penjual tetap dipakai.");
+      penghitung = setTimeout(function(){
+        menunggu = false; tombol.textContent = "Invoice baru"; pesan("");
+      }, 4000);
+      return;
+    }
+    clearTimeout(penghitung); menunggu = false; tombol.textContent = "Invoice baru";
+    var n = nomorBerikut();
+    tulis(KUNCI_HITUNG, String(n.c));
+    var h = hariIni();
+    S.nomor = n.nomor; S.tanggal = h; S.jatuhTempo = tambahHari(h, 14);
+    S.pelanggan = ""; S.alamatPelanggan = "";
+    S.items = [{ nama:"", qty:1, harga:0 }]; S.diskon = 0;
+    isiForm(); berubah();
+    $("salinan").hidden = true; $("labelSalinan").hidden = true;
+    pesan("Invoice baru dimulai: "+n.nomor);
+  });
+
+  isiForm();
+  renderKertas();
+  simpan();
+})();
+</script>
+</body>
+</html>
